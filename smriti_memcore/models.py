@@ -5,6 +5,8 @@ All core dataclasses, enums, and configuration used across the system.
 
 from __future__ import annotations
 
+import os
+
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -12,9 +14,9 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional
 
 
-# ──────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 # Enums
-# ──────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 
 class MemorySource(Enum):
     """Where a memory came from — affects trust and conflict resolution."""
@@ -61,9 +63,9 @@ class DecisionType(Enum):
     ADMIT_GAP_AND_ASK = "admit_gap_and_ask"
 
 
-# ──────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 # Core Data Models
-# ──────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 
 @dataclass
 class SalienceScore:
@@ -272,9 +274,9 @@ class ConfidenceLevel:
         return self.coverage < 0.05
 
 
-# ──────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 # Configuration
-# ──────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 
 @dataclass
 class SmritiConfig:
@@ -313,7 +315,7 @@ class SmritiConfig:
     room_stale_days: int = 90               # Archive rooms not visited in 90 days
 
     # LLM
-    llm_model: str = "mistral"              # Ollama model for reasoning
+    llm_model: str = os.environ.get("SMRITI_LLM_MODEL", "mistral")              # Ollama model for reasoning
     code_model: str = "codellama"           # Ollama model for code tasks
     judge_model: str = "gemini-flash"       # Judge model for evaluation
     ollama_base_url: str = "http://localhost:11434"
