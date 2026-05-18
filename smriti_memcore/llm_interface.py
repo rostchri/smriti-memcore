@@ -6,6 +6,8 @@ Optional: OpenAI, Gemini for evaluation judging.
 
 from __future__ import annotations
 
+import os
+
 import json
 import logging
 from dataclasses import dataclass
@@ -294,7 +296,7 @@ Return JSON: {{"summary": "concise combined summary", "key_facts": ["fact1", "fa
 
         try:
             resp = requests.post(
-                "https://api.openai.com/v1/chat/completions",
+                os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/") + "/chat/completions",
                 headers={
                     "Authorization": f"Bearer {self.openai_api_key}",
                     "Content-Type": "application/json",
@@ -392,7 +394,7 @@ Return JSON: {{"summary": "concise combined summary", "key_facts": ["fact1", "fa
 
         try:
             resp = requests.post(
-                "https://api.anthropic.com/v1/messages",
+                os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1").rstrip("/") + "/messages",
                 headers=headers,
                 json=payload,
                 timeout=90,
