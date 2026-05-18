@@ -282,7 +282,7 @@ function updateHeader(data){
   document.getElementById('hs-str').textContent = avg;
 }
 
-// ── Graph ───────────────────────────────────────────────────────
+// ── Graph ──────────────────────────────────────────────────────────
 function buildGraph(data){
   const container = document.getElementById('graph-container');
   const W = container.clientWidth, H = container.clientHeight;
@@ -429,7 +429,7 @@ function moveTip(e){
 }
 function hideTip(){document.getElementById('tooltip').classList.remove('vis');}
 
-// ── Legend + mem list ───────────────────────────────────────────
+// ── Legend + mem list ──────────────────────────────────────────────────
 function buildLegend(data){
   const rooms=[...new Set(data.nodes.map(n=>n.room))];
   document.getElementById('legend-items').innerHTML=rooms.map(r=>`
@@ -444,7 +444,7 @@ function buildMemList(nodes){
     </div>`).join('');
 }
 
-// ── Table view ──────────────────────────────────────────────────
+// ── Table view ───────────────────────────────────────────────────────
 let _allNodes=[];
 function buildTable(nodes){
   _allNodes=nodes;
@@ -488,7 +488,7 @@ function renderTable(nodes){
     </tr>`).join('');
 }
 
-// ── Stats view ──────────────────────────────────────────────────
+// ── Stats view ──────────────────────────────────────────────────────
 function buildStats(data){
   const nodes=data.nodes;
   if(!nodes.length){document.getElementById('stats-content').innerHTML='<p style="color:var(--muted)">No memories yet.</p>';return;}
@@ -528,7 +528,7 @@ function buildStats(data){
   `;
 }
 
-// ── Tabs ────────────────────────────────────────────────────────
+// ── Tabs ───────────────────────────────────────────────────────────
 function showTab(tab){
   ['graph','table','stats','episodes'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
@@ -538,7 +538,7 @@ function showTab(tab){
   if(tab==='episodes'&&!episodesLoaded){buildEpisodes();}
 }
 
-// ── Episode Feed ────────────────────────────────────────────────
+// ── Episode Feed ───────────────────────────────────────────────────────
 let episodesLoaded = false;
 
 async function buildEpisodes(){
@@ -567,7 +567,7 @@ async function buildEpisodes(){
   }
 }
 
-// ── Boot ────────────────────────────────────────────────────────
+// ── Boot ────────────────────────────────────────────────────────────
 refreshData().catch(console.error);
 </script>
 </body>
@@ -667,7 +667,7 @@ def _read_episodes(storage_path: str) -> list:
     return episodes
 
 
-# ── HTTP Handler ────────────────────────────────────────────────────────────────
+# ── HTTP Handler ───────────────────────────────────────────────────────────────
 
 class _Handler(BaseHTTPRequestHandler):
     storage_path: str = ""
@@ -708,7 +708,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-# ── Public API ──────────────────────────────────────────────────────────────────
+# ── Public API ──────────────────────────────────────────────────────────────────────
 
 def launch(
     storage_path: str = "~/.smriti/global",
@@ -740,7 +740,7 @@ def launch(
         pass
     Handler.storage_path = resolved
 
-    server = HTTPServer(("127.0.0.1", port), Handler)
+    server = HTTPServer((os.environ.get("SMRITI_UI_HOST", "127.0.0.1"), port), Handler)
 
     url = f"http://127.0.0.1:{port}"
     print(f"\n🏛️  Smriti Memory Browser")
