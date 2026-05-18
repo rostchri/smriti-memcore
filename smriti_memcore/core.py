@@ -123,7 +123,7 @@ class SMRITI:
 
         logger.info("SMRITI v2 initialized")
 
-    # ── Core API ─────────────────────────────────────────
+    # ── Core API ───────────────────────────────────────
 
     def encode(
         self,
@@ -192,6 +192,13 @@ class SMRITI:
             f"Encoded: '{content[:60]}...' → room '{room.topic}' "
             f"(salience={episode.salience.composite:.2f})"
         )
+        # Auto-persist palace + vectors after each encode (per-turn save).
+        # Without this, palace.json only lands on disk at close()/atexit —
+        # long-running MCP servers would never persist between restarts.
+        try:
+            self.save()
+        except Exception as _save_err:
+            logger.warning(f"Auto-save after encode failed: {_save_err}")
         return memory.id
 
     def recall(
@@ -240,7 +247,7 @@ class SMRITI:
         """
         return self.meta_memory.confidence_map(topic)
 
-    # ── Consolidation ────────────────────────────────────
+    # ── Consolidation ───────────────────────────────────
 
     def consolidate(self, depth=None) -> Dict:
         """
@@ -312,7 +319,7 @@ class SMRITI:
                 mem_a, mem_b, {"strategy": strategy}
             )
 
-    # ── Palace ───────────────────────────────────────────
+    # ── Palace ──────────────────────────────────────────
 
     def create_room(self, topic: str) -> str:
         """Manually create a palace room."""
@@ -323,7 +330,7 @@ class SMRITI:
         """Manually link two rooms."""
         self.palace.link_rooms(room_a_id, room_b_id, relationship)
 
-    # ── Working Memory ───────────────────────────────────
+    # ── Working Memory ──────────────────────────────────
 
     def get_context(self) -> str:
         """Get formatted working memory context for LLM injection."""
@@ -337,7 +344,7 @@ class SMRITI:
         """Get proactive warnings from the Ambient Monitor."""
         return self.working_memory.get_warnings()
 
-    # ── Inspection ───────────────────────────────────────
+    # ── Inspection ──────────────────────────────────────
 
     def stats(self) -> Dict[str, Any]:
         """Comprehensive system statistics."""
@@ -392,7 +399,7 @@ class SMRITI:
             len(self.working_memory._slots)
         )
 
-    # ── Persistence ──────────────────────────────────────
+    # ── Persistence ─────────────────────────────────────
 
     def save(self):
         """Save all state to disk."""
