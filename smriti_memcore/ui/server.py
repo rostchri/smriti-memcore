@@ -256,6 +256,23 @@ const TEXT_COLORS = {
 function rc(room){return COLORS[room]||'#8b5cf6';}
 function rtc(room){return TEXT_COLORS[room]||'#a78bfa';}
 
+// fmtLocal — convert ISO-timestamp (UTC) to browser-local "YYYY-MM-DD HH:MM" string.
+// Smriti speichert Timestamps als UTC-ISO ohne TZ-Suffix. Wir haengen 'Z' an
+// damit Date() es als UTC parst, dann convertet toLocaleString() in die
+// Browser-Zeitzone (vom Browser automatisch erkannt).
+function fmtLocal(iso, withSeconds){
+  if(!iso) return '';
+  // ISO ohne TZ → als UTC interpretieren
+  const utcIso = iso.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z';
+  try {
+    const d = new Date(utcIso);
+    if(isNaN(d.getTime())) return iso;
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` +
+           (withSeconds ? `:${pad(d.getSeconds())}` : '');
+  } catch { return iso; }
+}
+
 let graphData = {nodes:[],edges:[]};
 let simulation, svg, g, linkSel, nodeSel;
 let sortKey = 'strength', sortAsc = false;
@@ -554,7 +571,7 @@ async function buildEpisodes(){
     }
     tbody.innerHTML = episodes.map(ep=>`
       <tr>
-        <td style="white-space:nowrap;font-family:var(--mono);font-size:11px">${ep.timestamp.replace('T',' ').slice(0,16)}</td>
+        <td style="white-space:nowrap;font-family:var(--mono);font-size:11px">${fmtLocal(ep.timestamp)}</td>
         <td>${ep.content}</td>
         <td>${ep.source}</td>
         <td>${ep.salience.toFixed(3)}</td>
