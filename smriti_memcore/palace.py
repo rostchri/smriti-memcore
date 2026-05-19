@@ -205,6 +205,90 @@ class SemanticPalace:
 
         return room
 
+    def find_room_by_topic(self, topic: str) -> Optional[Room]:
+        """Find an existing room by its exact topic string (case-sensitive, stripped)."""
+        target = (topic or "").strip()
+        if not target:
+            return None
+        for r in self.rooms.values():
+            if r.topic.strip() == target:
+                return r
+        return None
+
+    def move_memory(self, memory_id: str, target_topic: str) -> Optional[Room]:
+        """Move a memory to a room with the given topic.
+
+        If a room with the topic already exists, the memory joins it (merge
+        semantics). Otherwise, a new room is created. Centroids of both the
+        old and new rooms are updated. Atomic under self._lock.
+
+        Returns the target Room, or None if the memory does not exist.
+        """
+        import uuid as _uuid
+        import numpy as _np
+        with self._lock:
+            memory = self.memories.get(memory_id)
+            if memory is None:
+                return None
+            target_topic_stripped = (target_topic or "").strip()
+            if not target_topic_stripped:
+                raise ValueError("target_topic must not be empty")
+
+            # Find target room (exact match) or create new
+            target = None
+            for r in self.rooms.values():
+                if r.topic.strip() == target_topic_stripped:
+                    target = r
+                    break
+            if target is None:
+                rid = str(_uuid.uuid4())[:8]
+                embedding = self.vector_store.embed(target_topic_stripped)
+                target = Room(
+                    id=rid,
+                    topic=target_topic_stripped,
+                    centroid_embedding=embedding,
+                )
+                self.rooms[rid] = target
+                self._room_embeddings[rid] = embedding
+                self.vector_store.add(
+                    id=f"room:{rid}",
+                    vector=embedding,
+                    metadata={"type": "room", "topic": target_topic_stripped},
+                )
+                logger.info(f"Created room '{target_topic_stripped}' (id={rid}) via move_memory")
+
+            old_room = self.rooms.get(memory.room_id) if memory.room_id else None
+            if old_room is target:
+                return target
+
+            # Remove memory id from old room's list
+            if old_room is not None:
+                old_room.memory_ids = [m for m in old_room.memory_ids if m != memory_id]
+
+            # Add to target
+            memory.room_id = target.id
+            if memory_id not in target.memory_ids:
+                target.memory_ids.append(memory_id)
+
+            # Update vector-store metadata for this memory so room_id reflects new home
+            if memory.embedding is not None:
+                self.vector_store.add(
+                    id=f"mem:{memory_id}",
+                    vector=_np.array(memory.embedding),
+                    metadata={
+                        "type": "memory",
+                        "room_id": target.id,
+                        "content": memory.content[:200],
+                    },
+                )
+
+            # Refresh centroids on both ends
+            if old_room is not None:
+                self._update_room_centroid(old_room)
+            self._update_room_centroid(target)
+
+        return target
+
     def get_memory(self, memory_id: str) -> Optional[Memory]:
         """Get a memory by ID."""
         return self.memories.get(memory_id)
