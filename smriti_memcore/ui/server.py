@@ -205,6 +205,7 @@ _HTML = r"""<!DOCTYPE html>
           <tr>
             <th onclick="sortTable('content')">Content ↕</th>
             <th onclick="sortTable('room')">Room ↕</th>
+            <th onclick="sortTable('created')">Created ↕</th>
             <th onclick="sortTable('strength')">Strength ↕</th>
             <th onclick="sortTable('salience')">Salience ↕</th>
             <th onclick="sortTable('status')">Status ↕</th>
@@ -271,6 +272,39 @@ function fmtLocal(iso, withSeconds){
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` +
            (withSeconds ? `:${pad(d.getSeconds())}` : '');
   } catch { return iso; }
+}
+
+// fmtRelative — "vor 3 min", "vor 2 h", "gestern", "vor 5 T" etc.
+function fmtRelative(iso){
+  if(!iso) return '';
+  const utcIso = iso.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z';
+  try {
+    const d = new Date(utcIso);
+    if(isNaN(d.getTime())) return '';
+    const sec = Math.max(0, Math.floor((Date.now() - d.getTime())/1000));
+    if(sec < 45) return 'gerade';
+    if(sec < 60*60) return `vor ${Math.floor(sec/60)} min`;
+    if(sec < 60*60*24) return `vor ${Math.floor(sec/3600)} h`;
+    if(sec < 60*60*24*7) return `vor ${Math.floor(sec/86400)} T`;
+    if(sec < 60*60*24*30) return `vor ${Math.floor(sec/(86400*7))} W`;
+    if(sec < 60*60*24*365) return `vor ${Math.floor(sec/(86400*30))} M`;
+    return `vor ${Math.floor(sec/(86400*365))} J`;
+  } catch { return ''; }
+}
+
+// ageColor — Farb-Hex nach Alter (gruen=neu, grau=alt)
+function ageColor(iso){
+  if(!iso) return '#6b7280';  // grau-default
+  const utcIso = iso.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z';
+  try {
+    const d = new Date(utcIso);
+    const ageH = (Date.now() - d.getTime()) / (1000*60*60);
+    if(ageH < 1)     return '#22c55e';  // hellgruen  (letzte Stunde)
+    if(ageH < 24)    return '#84cc16';  // gruen      (heute)
+    if(ageH < 24*7)  return '#eab308';  // gelb       (letzte Woche)
+    if(ageH < 24*30) return '#f97316';  // orange     (letzter Monat)
+    return '#6b7280';                    // grau       (aelter)
+  } catch { return '#6b7280'; }
 }
 
 let graphData = {nodes:[],edges:[]};
@@ -358,8 +392,8 @@ function buildGraph(data){
 
   // Halo
   nodeSel.append('circle').attr('r',d=>20+d.strength*12).attr('fill',d=>rc(d.room)+'10').attr('stroke','none');
-  // Main circle
-  nodeSel.append('circle').attr('r',d=>12+d.strength*10).attr('fill',d=>rc(d.room)+'cc').attr('stroke',d=>rc(d.room)).attr('stroke-width',2).attr('filter','url(#glow)').style('cursor','pointer');
+  // Main circle — Stroke = ageColor(d.created) (gruen=neu, grau=alt), Fill = Room-Color
+  nodeSel.append('circle').attr('r',d=>12+d.strength*10).attr('fill',d=>rc(d.room)+'cc').attr('stroke',d=>ageColor(d.created)).attr('stroke-width',3).attr('filter','url(#glow)').style('cursor','pointer');
   // Label
   nodeSel.append('text').attr('y',d=>20+d.strength*10).attr('text-anchor','middle').attr('fill','#94a3b8').attr('font-size',10.5).attr('font-family','Inter,sans-serif').text(d=>d.room);
 
@@ -410,6 +444,16 @@ function selectNode(d){
       <div class="dmetric"><div class="dmetric-val">${d.strength.toFixed(3)}</div><div class="dmetric-label">Strength</div></div>
       <div class="dmetric"><div class="dmetric-val">${d.salience.toFixed(3)}</div><div class="dmetric-label">Salience</div></div>
     </div>
+    <div class="dmetrics">
+      <div class="dmetric" title="${d.created||''}">
+        <div class="dmetric-val" style="font-size:13px;font-family:var(--mono)">${fmtLocal(d.created)||'—'}</div>
+        <div class="dmetric-label">Created · <span style="color:${ageColor(d.created)}">${fmtRelative(d.created)||'?'}</span></div>
+      </div>
+      <div class="dmetric" title="${d.last_accessed||''}">
+        <div class="dmetric-val" style="font-size:13px;font-family:var(--mono)">${fmtLocal(d.last_accessed)||'—'}</div>
+        <div class="dmetric-label">Last accessed</div>
+      </div>
+    </div>
     <div class="bar-wrap"><div class="bar-label">Memory Strength</div><div class="bar-track"><div class="bar-fill" style="width:${d.strength*100}%"></div></div></div>
     <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">
       ID: ${d.id}<br>Status: <span style="color:${d.status==='active'?'var(--green)':'var(--gold)'}">${d.status}</span> · Accessed: ${d.access_count}×
@@ -435,7 +479,9 @@ function clearSel(){
 
 function showTip(e,d){
   const t=document.getElementById('tooltip');
-  t.innerHTML=`<div class="t-room" style="color:${rtc(d.room)}">${d.room.toUpperCase()}</div><div style="margin-bottom:5px">${d.content.length>110?d.content.slice(0,110)+'…':d.content}</div><div style="font-size:10px;color:var(--muted)">strength <b style="color:var(--text)">${d.strength.toFixed(2)}</b> · salience <b style="color:var(--text)">${d.salience.toFixed(2)}</b></div>`;
+  const rel = fmtRelative(d.created);
+  const ageLine = rel ? `<div style="font-size:10px;color:${ageColor(d.created)};margin-top:3px">⏱ ${rel}</div>` : '';
+  t.innerHTML=`<div class="t-room" style="color:${rtc(d.room)}">${d.room.toUpperCase()}</div><div style="margin-bottom:5px">${d.content.length>110?d.content.slice(0,110)+'…':d.content}</div><div style="font-size:10px;color:var(--muted)">strength <b style="color:var(--text)">${d.strength.toFixed(2)}</b> · salience <b style="color:var(--text)">${d.salience.toFixed(2)}</b></div>${ageLine}`;
   t.classList.add('vis');moveTip(e);
 }
 function moveTip(e){
@@ -454,11 +500,15 @@ function buildLegend(data){
 }
 
 function buildMemList(nodes){
-  document.getElementById('mem-list').innerHTML=nodes.map(n=>`
+  document.getElementById('mem-list').innerHTML=nodes.map(n=>{
+    const rel = fmtRelative(n.created);
+    const relSpan = rel ? ` · <span style="color:${ageColor(n.created)}" title="${n.created||''}">${rel}</span>` : '';
+    return `
     <div class="mem-item" id="li-${n.id}" onclick="selectById('${n.id}')">
       <div class="mic">${n.content.length>80?n.content.slice(0,80)+'…':n.content}</div>
-      <div class="mim"><span style="color:${rtc(n.room)}">${n.room}</span> · str ${n.strength.toFixed(2)} · sal ${n.salience.toFixed(2)}</div>
-    </div>`).join('');
+      <div class="mim"><span style="color:${rtc(n.room)}">${n.room}</span> · str ${n.strength.toFixed(2)} · sal ${n.salience.toFixed(2)}${relSpan}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Table view ───────────────────────────────────────────────────────
@@ -498,6 +548,7 @@ function renderTable(nodes){
     <tr onclick="showTab('graph');setTimeout(()=>selectById('${n.id}'),200)">
       <td style="max-width:340px">${n.content}</td>
       <td><span class="room-badge" style="background:${rc(n.room)}22;color:${rtc(n.room)}">${n.room}</span></td>
+      <td style="white-space:nowrap;font-family:var(--mono);font-size:11px" title="${n.created||''}">${fmtLocal(n.created)}</td>
       <td>${n.strength.toFixed(3)}</td>
       <td>${n.salience.toFixed(3)}</td>
       <td><span class="${n.status==='active'?'status-ok':'status-pin'}">${n.status}</span></td>
